@@ -1,7 +1,7 @@
 # MarketDataStore
 Flutter Web Application with MongoDB and Django Backend for market data storage and visualization. Built to try out Flutter/Dart.
 
-Run the Django backend with: `python manage.py runserver`
+Run the Django backend from the backend dir with: `python manage.py runserver`
 The MongoDB server should be running locally with URI mongodb://127.0.0.1:27017 (default MongoDB URI).
 
 ## GENERAL
@@ -58,3 +58,14 @@ In the settings.py file the CLIENT does not need the URI since it's the default 
 >        #}
 >    }
 >}
+
+Each Django model is a MongoDB collection named <app_name>_<model> inside the database (mddb in this case).
+
+# DATAFEEDERS
+The datafeeders directory is used for feeding data with POST requests to the backend which will deserialize the JSON data into the Django Model using the ORM. The data from the model is then inserted into MongoDB as a document.
+
+For now the only data feeding is done with equity_feeder.py which uses the Yahoo! Finance python API yfinance to retrieve Market/Historical/Dividend data.
+
+Usage: equity_feeder.py [-h] --type TYPE --ticker TICKER [--sdate SDATE] [--edate EDATE] [--period PERIOD]
+
+--type can be: EQMKT for today's market price, EQHIST for an historical price (generating a document with multiple nested historical dates is not yet possible), or EQDVD for dividends (Django model will need to be implemented as a subclass of the Equity model)
