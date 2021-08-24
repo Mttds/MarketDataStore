@@ -2,6 +2,7 @@
 Flutter Web Application with MongoDB and Django Backend for market data storage and visualization. Built to try out Flutter/Dart.
 
 Run the Django backend from the backend dir with: `python manage.py runserver`
+
 The MongoDB server should be running locally with URI mongodb://127.0.0.1:27017 (default MongoDB URI).
 
 ## GENERAL
@@ -18,50 +19,36 @@ Also, the sqlparse (used by Django to convert ORM -> SQL -> mongoDB document ins
 ## REST API
 Library djangorestframework is used for the REST API and needs to be added to the INSTALLED_APPS list in the settings.py as rest_framework and included as `path('<app_name>/', include('apps.<app_name>.urls'))` in the config/urls.py file (apps.<app_name>.urls is the urls python file under apps/<app_name> where all the REST endpoints will be specified for that app and need to be included in the main urls.py file. The endpoint is included with '<app_name>' as the base URI, so all the endpoints specified in apps.<app_name>.urls are relative to <app_name>.
 
-- List equities:
->http://<host>:<port>/equities
-
-- Single equity:
->http://<host>:<port>/equities/<id>
-For example:
-
->{
->    "id": 1,
->    "date_time": "2021-08-22T12:17:28.848320Z",
->    "label": "MSFT",
->    "description": "Microsoft",
->    "p_high": "100.213000",
->    "p_close": "100.213000",
->    "p_low": "100.214000",
->    "p_open": "100.102000"
->}
-
-- Filtering by label
->http://<host>:<port>/equities/?label=MSFT
-
-- Filtering by md_date (market data date)
->http://localhost:8000/equities/?md_date=2021-01-01
-
-- Searching by label/md_date (the example would retur labels containing M such as MSFT)
->http://localhost:8000/equities/?search=M
+| Type                              | URI                                                        |
+| --------------------------------- | ---------------------------------------------------------- |
+| Equities                          | http://\<host\>:\<port\>/equities                          |
+| Dividends                         | http://\<host\>:\<port\>/dividends                         |
+| Single Equity                     | http://\<host\>:\<port\>/equities/\<id\>                   |
+| Single Dividend                   | http://\<host\>:\<port\>/dividends/\<id\>                  |
+| All Dividends for an Equity       | http://\<host\>:\<port\>/equities/\<id\>/dividends         |
+| Filtering by Equity label         | http://\<host\>:\<port\>/equities/?label=MSFT              |
+| Filtering by Equity md_date       | http://\<host\>:\<port\>/equities/?md_date=2021-08-20      |
+| Searching by Equity label         | http://\<host\>:\<port\>:8000/equities/?search=M           |
 
 ## MONGODB
 Installed locally with URI "mongodb://127.0.0.1:27017" (default).
 In the settings.py file the CLIENT does not need the URI since it's the default one, but would need one under the CLIENT structure plus the authentication method if it is enabled:
 
->DATABASES = {
->    'default': {
->        'ENGINE': 'djongo',
->        'NAME': 'mddb',
->        #'CLIENT': {
->        #    'host': 'mongodb://127.0.0.1:27017'
->        #}
->    }
->}
+```
+DATABASES = {
+    'default': {
+        'ENGINE': 'djongo',
+        'NAME': 'mddb',
+        #'CLIENT': {
+        #    'host': 'mongodb://127.0.0.1:27017'
+        #}
+    }
+}
+```
 
 Each Django model is a MongoDB collection named <app_name>_<model> inside the database (mddb in this case).
 
-# DATAFEEDERS
+## DATAFEEDERS
 The datafeeders directory is used for feeding data with POST requests to the backend which will deserialize the JSON data into the Django Model using the ORM. The data from the model is then inserted into MongoDB as a document.
 
 For now the only data feeding is done with equity_feeder.py which uses the Yahoo! Finance python API yfinance to retrieve Market/Historical/Dividend data.

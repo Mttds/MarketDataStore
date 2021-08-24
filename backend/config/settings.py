@@ -47,6 +47,7 @@ INSTALLED_APPS = [
 
     # own apps
     'apps.equities',
+    'apps.dividends',
 
     # third party packages
     'rest_framework',
