@@ -53,6 +53,8 @@ The datafeeders directory is used for feeding data with POST requests to the bac
 
 For now the only data feeding is done with equity_feeder.py which uses the Yahoo! Finance python API yfinance to retrieve Market/Historical/Dividend data.
 
-Usage: equity_feeder.py [-h] --type TYPE --ticker TICKER [--sdate SDATE] [--edate EDATE] [--period PERIOD]
+Usage: equity_feeder.py [-h] --type TYPE --ticker TICKER [--sdate SDATE] [--edate EDATE] [--period PERIOD] [--exdivyear EXDIVYEAR]
 
---type can be: EQMKT for today's market price, EQHIST for an historical price (generating a document with multiple nested historical dates is not yet possible), or EQDVD for dividends (Django model will need to be implemented as a subclass of the Equity model)
+--type can be: EQMKT for today's market price, EQHIST for an historical price (generating a document with multiple nested historical dates is not yet possible), or EQDVD for dividends (Django model implemented as a subclass of the Equity model).
+
+--exdivyear is to select the year for the ex_dividend_date and their values that will be inserted as nested documents in MongoDB. In this way we will have multiple Dividend documents related to their respective Equity thanks to the equity field (which stores the id), each one containing the array of dividends for the specified exdivyear.

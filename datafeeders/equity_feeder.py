@@ -14,6 +14,7 @@ import sys
 ## or set APPEND_SLASH=False in your Django settings.
 DJANGO_BACKEND_URL = 'http://localhost:8000'
 DJANGO_BACKEND_EQUITY_ENDPOINT = DJANGO_BACKEND_URL + '/equities/'
+DJANGO_BACKEND_DIVIDEND_ENDPOINT = DJANGO_BACKEND_URL + '/dividends/'
 
 def print_separator():
     print('='*50)
@@ -164,13 +165,48 @@ def build_payload_eqmkt(ticker_info_dict):
     return payload
 
 
+def get_equity_by_label(symbol):
+    url = DJANGO_BACKEND_EQUITY_ENDPOINT + "?label={0}".format(symbol)
+    try:
+        r = requests.get(url)
+        http_status = r.status_code
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        raise SystemExit(err)
+    except Exception as e:
+        raise SystemExit(e)
+    
+    print("HTTP POST ended with {0} status code".format(http_status))
+    return r.json()
+
+
+def build_payload_eqdvd(dividends_dict, equity_id, ex_div_year):
+    dividends_list = []
+
+    for k,v in dividends_dict.items():
+        ex_div_date = str(k)[:10]
+        dividend = v
+        # only dividends for the input year will be added to the payload
+        if(ex_div_date[:4] == ex_div_year): 
+            dividends_list.append(
+                {"ex_div_date": ex_div_date, "dividend": dividend}
+            )
+
+    payload = {
+        "year": ex_div_year,
+        "equity": equity_id,
+        "dividends": dividends_list
+    }
+    return payload
+
 def main(argv):
     parser = argparse.ArgumentParser(description='Equity Feeder for Django MongoDB backend.')
-    parser.add_argument('--type',  type=str, required=True)
-    parser.add_argument('--ticker', type=str, required=True)
-    parser.add_argument('--sdate',  type=str)
-    parser.add_argument('--edate',  type=str)
-    parser.add_argument('--period',type=str)
+    parser.add_argument('--type',      type=str, required=True)
+    parser.add_argument('--ticker',    type=str, required=True)
+    parser.add_argument('--sdate',     type=str)
+    parser.add_argument('--edate',     type=str)
+    parser.add_argument('--period',    type=str)
+    parser.add_argument('--exdivyear', type=str)
     args = parser.parse_args()
 
     # get params
@@ -179,13 +215,14 @@ def main(argv):
     start_date = args.sdate if args.sdate is not None else get_yesterday_iso_date()
     end_date = args.edate if args.edate is not None else get_yesterday_iso_date()
     feed_type = args.type
+    ex_div_year = args.exdivyear if args.exdivyear is not None else '1900'
 
     ticker_data = get_ticker_data(ticker_symbol)  
     ticker_info_dict = get_ticker_info(ticker_data)
     
     if(feed_type == "EQHIST"):
         ticker_dataframe = get_ticker_hist_data(ticker_data, start_date, end_date, period)
-        print(ticker_dataframe.to_dict())
+        #print(ticker_dataframe.to_dict())
         if ticker_dataframe.empty:
             print("No historical data found for the provided --sdate {0} and --edate {1}".format(start_date, end_date))
             sys.exit(1)
@@ -197,14 +234,27 @@ def main(argv):
         payload = build_payload_eqmkt(ticker_info_dict)
     elif(feed_type == "EQDVD"):
         ticker_dividends = get_ticker_dividends(ticker_data)
+        #print(ticker_dividends.head(100))
+        #print(ticker_dividends.to_dict())
+
         if ticker_dividends.empty:
-            print("No historical data found for the provided --sdate {0} and --edate {1}".format(start_date, end_date))
+            print("No dividends data found for the provided symbol  {0} and year {1}".format(ticker_symbol, ex_div_year))
             sys.exit(1)
+
+        # get the id field from the JSON GET request response
+        # filtering by equity label
+        # we will need it for the equity field in the dividend document
+        # since it's the foreign key to the equity document
+        equity_id = get_equity_by_label(ticker_symbol)[0]['id']
+        payload = build_payload_eqdvd(ticker_dividends.to_dict(), equity_id, ex_div_year)
     else:
-        print("--type should be EQHIST, EQMKT instead of {0}".format(feed_type))
+        print("--type should be EQHIST, EQMKT, EQDVD instead of {0}".format(feed_type))
         sys.exit(1)
 
-    post_request(DJANGO_BACKEND_EQUITY_ENDPOINT, payload)
+    if(feed_type == "EQHIST" or feed_type == "EQMKT"):
+        post_request(DJANGO_BACKEND_EQUITY_ENDPOINT, payload)
+    elif(feed_type == "EQDVD"):
+        post_request(DJANGO_BACKEND_DIVIDEND_ENDPOINT, payload)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

@@ -11,16 +11,6 @@ from apps.dividends.views import DividendSerializer
 class EquitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Equity
-        #fields = [
-        #    'date_time',
-        #    'md_date',
-        #    'label',
-        #    'description',
-        #    'p_high',
-        #    'p_close',
-        #    'p_low',
-        #    'p_open'
-        #]
         fields = '__all__'
 
 # Create your views here.
@@ -37,6 +27,7 @@ class EquityDividendsViewSet(viewsets.ModelViewSet):
     serializer_class = DividendSerializer
     queryset = Dividend.objects.all()
 
+    # override method of ModelViewSet
     def list(self, request, equity_pk):
         dividends = Dividend.objects.filter(equity = equity_pk)
         serializer = self.get_serializer(dividends, many=True)
