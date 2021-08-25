@@ -1,7 +1,9 @@
 from django.shortcuts import render
 from rest_framework import serializers
-from rest_framework import viewsets
 from rest_framework.response import Response
+from rest_framework import viewsets
+from django_filters import rest_framework as filters
+from rest_framework.filters import OrderingFilter
 from .models import Dividend, DividendList
 
 class DividendSerializer(serializers.ModelSerializer):
@@ -19,10 +21,6 @@ class DividendSerializer(serializers.ModelSerializer):
 class DividendsViewSet(viewsets.ModelViewSet):
     serializer_class = DividendSerializer
     queryset = Dividend.objects.all()
-
-    # override ModelViewSet list method
-    def list(self, request):
-        queryset = self.queryset
-        serializer = DividendSerializer(queryset, many=True)
-        print("DividendsViewSet list method", serializer.data)
-        return Response(serializer.data)
+    filter_backends = (filters.DjangoFilterBackend, OrderingFilter)
+    filterset_fields = ('equity', 'year')
+    ordering = ('year')

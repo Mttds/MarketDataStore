@@ -69,7 +69,7 @@ def get_ticker_info(ticker_data):
     p_close = info_data["regularMarketPreviousClose"] # previousClose also exists
     p_open = info_data["regularMarketOpen"] # open also exists
     return {
-        'industry': industry,'country': country,'current_price': current_price,
+        'industry': industry,'country': country,'p_mkt': current_price,
         'long_name': long_name,'symbol': symbol,'currency': currency,
         'market_cap': market_cap,'market': market,'exchange': exchange,
         'p_high': p_high, 'p_low': p_low, 'p_close': p_close, 'p_open': p_open
@@ -96,6 +96,24 @@ def post_request(url, payload_as_dict):
     except Exception as e:
         raise SystemExit(e)
     print("HTTP POST ended with {0} status code".format(http_status))
+    return http_status
+
+
+def put_request(url, payload_as_dict):
+    print_separator()
+    print("URL: {0}".format(url))
+    print("payload:\n{0}".format(json.dumps(payload_as_dict, indent=4, sort_keys=True)))
+
+    # make the post request
+    try:
+        r = requests.put(url, json=payload_as_dict)
+        http_status = r.status_code
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        raise SystemExit(err)
+    except Exception as e:
+        raise SystemExit(e)
+    print("HTTP PUT ended with {0} status code".format(http_status))
     return http_status
 
 
@@ -130,9 +148,15 @@ def build_payload_eqhist(ticker_dataframe, ticker_info_dict):
     payload = {
         "label": ticker_info_dict['symbol'],
         "description": ticker_info_dict['long_name'],
+        "date_time": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "md_date": str(list(ticker_dataframe.to_dict()['Open'])[0])[:10],
-        "date_time": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")#,
-        #"p_market": None
+        "industry": ticker_info_dict['industry'],
+        "country": ticker_info_dict['country'],
+        "currency": ticker_info_dict['currency'],
+        "market": ticker_info_dict['market'],
+        "exchange": ticker_info_dict['exchange'],
+        "market_cap": ticker_info_dict['market_cap'],
+        "tickdata": [] # cannot have tickdata for past prices
     }
 
     for k,v in ticker_dataframe.to_dict().items():
@@ -148,7 +172,7 @@ def build_payload_eqmkt(ticker_info_dict):
         "p_high" : "p_high",
         "p_low"  : "p_low",
         "p_close": "p_close",
-        "p_market": "current_price"
+        "p_mkt"  : "p_mkt"
     }
 
     payload = {
@@ -160,7 +184,18 @@ def build_payload_eqmkt(ticker_info_dict):
         "p_high": ticker_info_dict[key_conversion_map['p_high']],
         "p_open": ticker_info_dict[key_conversion_map['p_open']],
         "p_close": ticker_info_dict[key_conversion_map['p_close']],
-        "p_market": ticker_info_dict[key_conversion_map['p_market']]
+        "industry": ticker_info_dict['industry'],
+        "country": ticker_info_dict['country'],
+        "currency": ticker_info_dict['currency'],
+        "market": ticker_info_dict['market'],
+        "exchange": ticker_info_dict['exchange'],
+        "market_cap": ticker_info_dict['market_cap'],
+        "tickdata": [
+            {
+                "p_mkt": ticker_info_dict[key_conversion_map['p_mkt']],
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            }
+        ]
     }
     return payload
 
@@ -176,7 +211,52 @@ def get_equity_by_label(symbol):
     except Exception as e:
         raise SystemExit(e)
     
-    print("HTTP POST ended with {0} status code".format(http_status))
+    print("HTTP GET for equity label {0} ended with {1} status code".format(symbol, http_status))
+    return r.json()
+
+
+def get_equity_by_label_and_date(symbol, md_date):
+    url = DJANGO_BACKEND_EQUITY_ENDPOINT + "?label={0}&md_date={1}".format(symbol, md_date)
+    try:
+        r = requests.get(url)
+        http_status = r.status_code
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        raise SystemExit(err)
+    except Exception as e:
+        raise SystemExit(e)
+    
+    print("HTTP GET for equity label {0} at md_date {1} ended with {2} status code".format(symbol, md_date, http_status))
+    return r.json()
+
+
+def get_dividends_by_equity_and_year(equity_id, ex_div_year):
+    url = DJANGO_BACKEND_DIVIDEND_ENDPOINT + "?equity={0}&year={1}".format(equity_id, ex_div_year)
+    try:
+        r = requests.get(url)
+        http_status = r.status_code
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        raise SystemExit(err)
+    except Exception as e:
+        raise SystemExit(e)
+    
+    print("HTTP GET for dividends for equity id {0} and exdivyear {1} ended with {2} status code".format(equity_id, ex_div_year, http_status))
+    return r.json()
+
+
+def get_dividends_by_equity(equity_id):
+    url = DJANGO_BACKEND_DIVIDEND_ENDPOINT + "?equity={0}".format(equity_id)
+    try:
+        r = requests.get(url)
+        http_status = r.status_code
+        r.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        raise SystemExit(err)
+    except Exception as e:
+        raise SystemExit(e)
+    
+    print("HTTP GET for dividends for equity id {0} ended with {1} status code".format(equity_id, http_status))
     return r.json()
 
 
@@ -195,7 +275,8 @@ def build_payload_eqdvd(dividends_dict, equity_id, ex_div_year):
     payload = {
         "year": ex_div_year,
         "equity": equity_id,
-        "dividends": dividends_list
+        "dividends": dividends_list,
+        "date_time": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     }
     return payload
 
@@ -220,9 +301,11 @@ def main(argv):
     ticker_data = get_ticker_data(ticker_symbol)  
     ticker_info_dict = get_ticker_info(ticker_data)
     
+    #=================================================================================
+    # Build the payload for EQHIST, EQMKT, or EQDVD
+    #=================================================================================
     if(feed_type == "EQHIST"):
         ticker_dataframe = get_ticker_hist_data(ticker_data, start_date, end_date, period)
-        #print(ticker_dataframe.to_dict())
         if ticker_dataframe.empty:
             print("No historical data found for the provided --sdate {0} and --edate {1}".format(start_date, end_date))
             sys.exit(1)
@@ -234,27 +317,52 @@ def main(argv):
         payload = build_payload_eqmkt(ticker_info_dict)
     elif(feed_type == "EQDVD"):
         ticker_dividends = get_ticker_dividends(ticker_data)
-        #print(ticker_dividends.head(100))
-        #print(ticker_dividends.to_dict())
-
         if ticker_dividends.empty:
-            print("No dividends data found for the provided symbol  {0} and year {1}".format(ticker_symbol, ex_div_year))
+            print("No dividends data found for the provided symbol {0} and year {1}".format(ticker_symbol, ex_div_year))
             sys.exit(1)
 
         # get the id field from the JSON GET request response
         # filtering by equity label
         # we will need it for the equity field in the dividend document
         # since it's the foreign key to the equity document
-        equity_id = get_equity_by_label(ticker_symbol)[0]['id']
+        # we take the ID of the last inserted Equity for a given symbol
+        # since the lookup Dividends -> Equity is just for general information
+        # and not to lookup prices/tickdata
+        equity = get_equity_by_label(ticker_symbol)
+        equity_id = equity[len(equity)-1]['id']
         payload = build_payload_eqdvd(ticker_dividends.to_dict(), equity_id, ex_div_year)
     else:
         print("--type should be EQHIST, EQMKT, EQDVD instead of {0}".format(feed_type))
         sys.exit(1)
 
+    #=================================================================================
+    # Make the POST/PUT request
+    #=================================================================================
     if(feed_type == "EQHIST" or feed_type == "EQMKT"):
-        post_request(DJANGO_BACKEND_EQUITY_ENDPOINT, payload)
+        # check if the label & md_date already exists in the database
+        # if it does make a PUT request instead of a POST request
+        equity = get_equity_by_label_and_date(ticker_symbol, payload['md_date'])
+        if(len(equity) != 0 and len(payload['tickdata']) != 0):
+            new_tickdata = payload['tickdata'][0]
+            existing_tickdata = json.loads(equity[0]['tickdata']) # need to convert the json nested array object into a python list
+            existing_tickdata.append(new_tickdata)
+            payload['tickdata'] = existing_tickdata
+        elif(len(equity) != 0):
+            existing_tickdata = json.loads(equity[0]['tickdata'])
+            payload['tickdata'] = existing_tickdata
+        if(len(equity) == 0):
+            post_request(DJANGO_BACKEND_EQUITY_ENDPOINT, payload)
+        else:
+            put_request(DJANGO_BACKEND_EQUITY_ENDPOINT + str(equity[0]['id']) + '/', payload)
     elif(feed_type == "EQDVD"):
-        post_request(DJANGO_BACKEND_DIVIDEND_ENDPOINT, payload)
+        dividends = get_dividends_by_equity_and_year(payload['equity'], ex_div_year)
+        print(dividends)
+        if(len(dividends) == 0):
+            post_request(DJANGO_BACKEND_DIVIDEND_ENDPOINT, payload)
+        else:
+            put_request(DJANGO_BACKEND_DIVIDEND_ENDPOINT + str(dividends[0]['id']) + '/', payload)
 
+#=================================================================================
+#=================================================================================
 if __name__ == "__main__":
     main(sys.argv[1:])

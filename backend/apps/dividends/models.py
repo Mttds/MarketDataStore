@@ -1,5 +1,6 @@
 from django.db import models
 from django import forms
+from django.utils import timezone
 from djongo import models as djongo_models
 from apps.equities.models import Equity
 from datetime import date, datetime
@@ -17,7 +18,7 @@ class DividendList(djongo_models.Model):
     #dividend = models.DecimalField(max_digits=16, decimal_places=6)
     dividend = models.FloatField()
 
-    # never instantiated and cannot have as a serializer
+    # never instantiated and cannot have and abstract model in a serializer
     # created just to be embedded as a structure inside ArrayField
     # in order to have multiple ex_div_date/dividend tuples in our
     # Dividend object/document
@@ -34,7 +35,7 @@ class DividendListForm(forms.ModelForm):
 
 class Dividend(models.Model):
     year = models.CharField(max_length=4)
-    date_time = models.DateTimeField(auto_now_add=True)
+    date_time = models.DateTimeField(default=timezone.now())
     
     equity = models.ForeignKey(
         Equity,
