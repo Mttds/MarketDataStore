@@ -55,7 +55,8 @@ Each Django model is a MongoDB collection named <app_name>_<model> inside the da
 ## MODELS
 
 - Equity
-The Equity models contains a tickdata array which can be updated with each PUT request for the same label/md_date.
+
+The Equity model contains a tickdata array which can be updated with each PUT request for the same label/md_date.
 If an historical price does not already exist,  or it does exist but with an empty tickdata, it will be inserted/updated with an empty tickdata structure.
 This is because we cannot have tickdata for historical prices, unless we collected and inserted that data during that trading day (in that case updating the document would most likely yield the same document with a PUT request given the same market data source).
 
@@ -91,6 +92,7 @@ This is because we cannot have tickdata for historical prices, unless we collect
 In this way we will have multiple documents for a single Equity, each containing information for that trading date (hence unique document by label/md_date).
 
 - Dividend
+
 The Dividend model actually describes a dividends list for a given year. Dividend data does not need the same frequency of Equity prices, so we can have one document per year that can be updated accordingly and will be linked by the equity relation which points to the last Equity id inserted for the Security related to the dividends. In this example, equity = 31 points to the last inserted document by md_date/label for MSFT (Microsoft). The "foreign key" (even if it's a documents database and foreign key is not the appropriate terminology) for the Equity lookup is needed just to get the correct Equity label and its market information (market, exchange, country, ...) which do not change. This is why it's not a problem if the dividends list for year 2021 points to a Security's document for a md_date which is not the latest, since we can lookup the same Equity label and its underlying information (but not the prices since they describe an old trading date).
 
 ```

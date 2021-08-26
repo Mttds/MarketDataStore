@@ -31,5 +31,9 @@ class Equity(models.Model):
         model_container=TickData
     )
 
+    constraints = [
+        models.UniqueConstraint(fields=['label', 'md_date'], name='unique_label_md_date')
+    ]
+
     def __str__(self):
         return self.label
